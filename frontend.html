@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>GraphQL To-Do App</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 2rem;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #222;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .form input,
+        .form select,
+        .form button {
+            padding: 0.7rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        .form input,
+        .form select {
+            flex: 1 1 200px;
+        }
+
+        .form button {
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .form button:hover {
+            background-color: #218838;
+        }
+
+        .todo {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-left: 6px solid;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .todo.high {
+            border-left-color: #dc3545;
+        }
+
+        .todo.medium {
+            border-left-color: #ffc107;
+        }
+
+        .todo.low {
+            border-left-color: #28a745;
+        }
+
+        .todo-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .todo-task.completed {
+            text-decoration: line-through;
+            color: gray;
+        }
+
+        .todo-status {
+            font-size: 0.9rem;
+            margin-top: 0.3rem;
+        }
+
+        .todo-buttons button {
+            margin-left: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-btn {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .toggle-btn:hover {
+            background-color: #138496;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📝 To-Do App (GraphQL)</h1>
+
+        <div class="form">
+            <input type="text" id="taskInput" placeholder="Enter a new task..." />
+            <select id="priorityInput">
+                <option value="high">High 🔴</option>
+                <option value="medium" selected>Medium 🟠</option>
+                <option value="low">Low 🟢</option>
+            </select>
+            <button onclick="addTodo()">Add Todo</button>
+        </div>
+
+        <div id="todoList"></div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:4000/graphql";
+
+        async function addTodo() {
+            const task = document.getElementById("taskInput").value;
+            const priority = document.getElementById("priorityInput").value;
+            if (!task.trim()) return;
+
+            const query = `
+        mutation {
+          addTodo(task: "${task}", priority: "${priority}") {
+            id
+          }
+        }
+      `;
+            await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query }),
+            });
+
+            document.getElementById("taskInput").value = "";
+            fetchTodos();
+        }
+
+        async function toggleTodo(id) {
+            const query = `
+        mutation {
+          toggleTodo(id: "${id}") {
+            id
+          }
+        }
+      `;
+            await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query }),
+            });
+            fetchTodos();
+        }
+
+        async function deleteTodo(id) {
+            const query = `
+        mutation {
+          deleteTodo(id: "${id}")
+        }
+      `;
+            await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query }),
+            });
+            fetchTodos();
+        }
+
+        async function fetchTodos() {
+            const query = `
+        query {
+          getTodos {
+            id
+            task
+            completed
+            priority
+          }
+        }
+      `;
+            const res = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query }),
+            });
+            const data = await res.json();
+            const todos = data.data.getTodos;
+            const list = document.getElementById("todoList");
+            list.innerHTML = "";
+
+            todos.forEach(todo => {
+                const div = document.createElement("div");
+                div.className = `todo ${todo.priority}`;
+
+                div.innerHTML = `
+          <div class="todo-text">
+            <div class="todo-task ${todo.completed ? 'completed' : ''}">
+              ${todo.task}
+            </div>
+            <div class="todo-status">
+              ${todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)} • 
+              ${todo.completed ? "✅ Done" : "❌ Not Done"}
+            </div>
+          </div>
+          <div class="todo-buttons">
+            <button class="toggle-btn" onclick="toggleTodo('${todo.id}')">Toggle</button>
+            <button class="delete-btn" onclick="deleteTodo('${todo.id}')">Delete</button>
+          </div>
+        `;
+                list.appendChild(div);
+            });
+        }
+
+        fetchTodos();
+    </script>
+</body>
+
+</html>
